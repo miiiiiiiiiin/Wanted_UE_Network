@@ -12,6 +12,8 @@
 #include "CharacterStat/ABCharacterStatComponent.h"
 #include "Interface/ABGameInterface.h"
 
+#include <ArenaBattle.h>
+
 AABCharacterPlayer::AABCharacterPlayer()
 {
 	// Camera
@@ -86,6 +88,72 @@ void AABCharacterPlayer::SetDead()
 	{
 		DisableInput(PlayerController);
 	}
+}
+
+void AABCharacterPlayer::PossessedBy(AController* NewController)
+{
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+	// PossessedBy 호출 전에 소유 확인
+	AActor* OwnerActor = GetOwner();
+	if (OwnerActor)
+	{
+		AB_LOG(
+			LogABNetwork, 
+			Log, 
+			TEXT("Owner: %s"), 
+			*OwnerActor->GetName());
+
+	}
+	else
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("No Owner"));
+
+	}
+	// 호출 후 확인
+	Super::PossessedBy(NewController);
+	OwnerActor = GetOwner();
+	if (OwnerActor)
+	{
+		AB_LOG(
+			LogABNetwork,
+			Log,
+			TEXT("Owner: %s"),
+			*OwnerActor->GetName());
+
+	}
+	else
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("No Owner"));
+
+	}
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+}
+
+void AABCharacterPlayer::OnRep_Owner()
+{
+
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+	Super::OnRep_Owner();
+
+	// OnRep_Owner 함수 호출 후에 소유 확인
+	AActor* OwnerActor = GetOwner();
+	if (OwnerActor)
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("Owner: %s"), *OwnerActor->GetName());
+	}
+	else
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("No Owner"));
+	}
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+
+}
+
+void AABCharacterPlayer::PostNetInit()
+{
+	AB_LOG(LogABNetwork, Log, TEXT("%s %s"), TEXT("Begin"), *GetName());
+	Super::PostNetInit();
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
 }
 
 void AABCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)

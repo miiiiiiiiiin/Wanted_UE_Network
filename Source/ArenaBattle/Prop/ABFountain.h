@@ -23,13 +23,13 @@ protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// 액터 채널이 열릴 때 추가 초기화. (클라가 해당 액터의 초기 채널 데이터 받을 때.)
-	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
+	//virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
 
-	// 연관성 있는지 판별하는 함수. 리플리케이션 할 필요가 있는지 판별함. 
-	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+	//// 연관성 있는지 판별하는 함수. 리플리케이션 할 필요가 있는지 판별함. 
+	//virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
-	// 리플리케이션하기 전에 실행되는 함수. 데이터 및 전송 조건 설정. 
-	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
+	//// 리플리케이션하기 전에 실행되는 함수. 데이터 및 전송 조건 설정. 
+	//virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -47,6 +47,17 @@ public:
 
 	UFUNCTION()
 	void OnRep_ServerLightColor();
+
+	// Multicast RPC 함수
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastRPCChangeLightColor(const FLinearColor& newLightColor);
+
+	// 서버 RPC
+	UFUNCTION(Server, Unreliable, WithValidation)
+	void ServerRPCChangeLightColor();
+
+	UFUNCTION(Client, Unreliable)
+	void ClientRPCChangeLightColor(const FLinearColor& newLightColor);
 
 	// Replicated: 값복제할거임
 	// 회전에 사용할 속성 (리플리케이션 옵션 지정.)

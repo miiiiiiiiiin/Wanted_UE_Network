@@ -80,6 +80,8 @@ AABCharacterPlayer::AABCharacterPlayer()
 
 void AABCharacterPlayer::BeginPlay()
 {
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
 	Super::BeginPlay();
 
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
@@ -417,10 +419,10 @@ void AABCharacterPlayer::MulticastRPCAttack_Implementation()
 				}), AttackTime, false
 		);
 
-		// 공격 몽타주 재생
-		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		AnimInstance->Montage_Play(ComboActionMontage);
 	}
+	// 공격 몽타주 재생
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(ComboActionMontage);
 
 	
 }

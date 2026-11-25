@@ -4,6 +4,7 @@
 #include "Character/ABCharacterPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include <GameFramework/CharacterMovementComponent.h>
 #include "InputMappingContext.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -11,8 +12,12 @@
 #include "UI/ABHUDWidget.h"
 #include "CharacterStat/ABCharacterStatComponent.h"
 #include "Interface/ABGameInterface.h"
+#include <Components/CapsuleComponent.h>
+#include <Engine/DamageEvents.h>
+#include <Net/UnrealNetwork.h>
 
 #include <ArenaBattle.h>
+#include <Physics/ABCollision.h>
 
 AABCharacterPlayer::AABCharacterPlayer()
 {
@@ -64,6 +69,13 @@ AABCharacterPlayer::AABCharacterPlayer()
 	}
 
 	CurrentCharacterControlType = ECharacterControlType::Quater;
+
+	// 시작할 때는 공격 가능하도록 설정
+	bCanAttack = true;
+
+	// 리플리케이션 활성화
+	SetReplicates(true);
+
 }
 
 void AABCharacterPlayer::BeginPlay()
@@ -154,6 +166,13 @@ void AABCharacterPlayer::PostNetInit()
 	AB_LOG(LogABNetwork, Log, TEXT("%s %s"), TEXT("Begin"), *GetName());
 	Super::PostNetInit();
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+}
+
+void AABCharacterPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	// 리플리케이션 속성 랖탐 꼭 켜야함. 
+	DOREPLIFETIME(AABCharacterPlayer, bCanAttack);
 }
 
 void AABCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -268,7 +287,142 @@ void AABCharacterPlayer::QuaterMove(const FInputActionValue& Value)
 
 void AABCharacterPlayer::Attack()
 {
-	ProcessComboCommand();
+	//ProcessComboCommand();
+
+	// 공격 가능한지 확인
+	if (!bCanAttack)
+	{
+		return;
+	}
+	// ServerRPC 호출(호출은 소유 클라이언트에서.)
+	ServerRPCAttack();
+	
+	//// 공격 중인 상태로 설정. 
+	//bCanAttack = false;
+
+	//// 공격 시에는 이동하지 않도록 모드 변경
+	//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+
+	//// 공격 종료 처리를 위한 타이머 설정
+	//FTimerHandle Handle;
+	//GetWorld()->GetTimerManager().SetTimer(
+	//	Handle,
+	//	FTimerDelegate::CreateLambda([&]()
+	//		{
+	//			// 공격 가능 상태로 설정
+	//			bCanAttack = true;
+
+	//			// 무브먼트 모드 복구
+	//			GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	//		}), AttackTime, false
+	//);
+
+	//// 공격 몽타주 재생
+	//UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	//AnimInstance->Montage_Play(ComboActionMontage);
+}
+
+void AABCharacterPlayer::AttackHitCheck()
+{
+	// 공격 판정은 서버에서만 진행
+	if (HasAuthority())
+	{
+		// 로그 출력
+		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+		FHitResult OutHitResult;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
+
+		const float AttackRange = Stat->GetTotalStat().AttackRange;
+		const float AttackRadius = Stat->GetAttackRadius();
+		const float AttackDamage = Stat->GetTotalStat().Attack;
+		const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
+		const FVector End = Start + GetActorForwardVector() * AttackRange;
+
+		bool HitDetected = GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, CCHANNEL_ABACTION, FCollisionShape::MakeSphere(AttackRadius), Params);
+		if (HitDetected)
+		{
+			FDamageEvent DamageEvent;
+			OutHitResult.GetActor()->TakeDamage(AttackDamage, DamageEvent, GetController(), this);
+		}
+
+#if ENABLE_DRAW_DEBUG
+
+		FVector CapsuleOrigin = Start + (End - Start) * 0.5f;
+		float CapsuleHalfHeight = AttackRange * 0.5f;
+		FColor DrawColor = HitDetected ? FColor::Green : FColor::Red;
+
+		DrawDebugCapsule(GetWorld(), CapsuleOrigin, CapsuleHalfHeight, AttackRadius, FRotationMatrix::MakeFromZ(GetActorForwardVector()).ToQuat(), DrawColor, false, 5.0f);
+
+#endif
+	}
+}
+
+void AABCharacterPlayer::OnRep_CanAttack()
+{
+	// 공격중
+	if (!bCanAttack)
+	{
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+	}
+	else
+	{
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	}
+}
+
+
+bool AABCharacterPlayer::ServerRPCAttack_Validate()
+{
+	return true;
+}
+
+void AABCharacterPlayer::ServerRPCAttack_Implementation()
+{
+	// 로그 출력
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	// 서버에 있는 액터에서 실행
+	MulticastRPCAttack();
+}
+
+void AABCharacterPlayer::MulticastRPCAttack_Implementation()
+{
+	// 로그 출력. 
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	// 서버 로직
+	if (HasAuthority())
+	{
+		// 공격 중인 상태로 설정. 
+		bCanAttack = false;
+
+		// 공격 시에는 이동하지 않도록 모드 변경
+		//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+		OnRep_CanAttack();
+
+		// 공격 종료 처리를 위한 타이머 설정
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(
+			Handle,
+			FTimerDelegate::CreateLambda([&]()
+				{
+					// 공격 가능 상태로 설정
+					bCanAttack = true;
+
+					// 무브먼트 모드 복구
+					//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+					OnRep_CanAttack();
+
+				}), AttackTime, false
+		);
+
+		// 공격 몽타주 재생
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		AnimInstance->Montage_Play(ComboActionMontage);
+	}
+
+	
 }
 
 void AABCharacterPlayer::SetupHUDWidget(UABHUDWidget* InHUDWidget)

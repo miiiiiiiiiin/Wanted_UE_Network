@@ -80,14 +80,40 @@ protected:
 	// AttackCheckHit 오버라이드
 	virtual void AttackHitCheck() override;
 
+	// 공격 판정 후 승인할 때 사용할 함수
+	void AttackHitConfirm(AActor* HitActor);
+
+	// DebugDraw 함수
+	void DrawDebugAttackRange(
+		const FColor& DrawColor,
+		FVector TraceStart, 
+		FVector TraceEnd, 
+		FVector Forward);
+
 	// 공격 명령 처리를 위한 ServerRPC
 	// 클라 -> 서버로 전달. 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerRPCAttack(float AttackStartTime);
 
 	// 서버 포함, 모든 클라이언트 공격 명령 전달을 위한 MulticastRPC
-	UFUNCTION(NetMulticast, Reliable)
+	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastRPCAttack();
+
+	// 공격 애니메이션 재생에 사용할 클라이언트 RPC
+	UFUNCTION(Client, Unreliable)
+	void ClientRPCPlayAnimation(AABCharacterPlayer* CharacterToPlay);
+
+	// 클라이언트에서 무언가 맞았을 때 서버로 판정을 보내는 함수
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRPCNotifyHit(const FHitResult& HitResult, float HitCheckTime);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRPCNotifyMiss(
+		FVector_NetQuantize TraceStart, 
+		FVector_NetQuantize TraceEnd,
+		FVector_NetQuantizeNormal TraceDir,
+		float HitCheckTime
+	);
 
 	UFUNCTION()
 	void OnRep_CanAttack();
@@ -104,6 +130,12 @@ protected:
 
 	// 클라이언트와 서버의 시간 간격을 기록하기 위한 변수
 	float AttackTimeDifference = 0.0f;
+
+	// 공격 판정 확인할 때 승인을 위해 비교할 값
+	float AcceptCheckDistance = 300.0f;
+
+	// 서버에서 공격 판정할 때 허용할 값
+	float AcceptMinCheckTime = 0.15f;
 
 // UI Section
 protected:

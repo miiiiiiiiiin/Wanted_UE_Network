@@ -324,6 +324,10 @@ void AABCharacterPlayer::Attack()
 	//AnimInstance->Montage_Play(ComboActionMontage);
 }
 
+void AABCharacterPlayer::PlayAttackAnimation()
+{
+}
+
 void AABCharacterPlayer::AttackHitCheck()
 {
 	// 공격 판정은 서버에서만 진행
@@ -374,12 +378,12 @@ void AABCharacterPlayer::OnRep_CanAttack()
 }
 
 
-bool AABCharacterPlayer::ServerRPCAttack_Validate()
+bool AABCharacterPlayer::ServerRPCAttack_Validate(float AttackStartTime)
 {
 	return true;
 }
 
-void AABCharacterPlayer::ServerRPCAttack_Implementation()
+void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
 {
 	// 로그 출력
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));

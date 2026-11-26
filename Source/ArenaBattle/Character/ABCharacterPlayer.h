@@ -74,13 +74,16 @@ protected:
 
 	void Attack();
 
+	// 공격 애니메이션 재생 함수
+	void PlayAttackAnimation();
+
 	// AttackCheckHit 오버라이드
 	virtual void AttackHitCheck() override;
 
 	// 공격 명령 처리를 위한 ServerRPC
 	// 클라 -> 서버로 전달. 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerRPCAttack();
+	void ServerRPCAttack(float AttackStartTime);
 
 	// 서버 포함, 모든 클라이언트 공격 명령 전달을 위한 MulticastRPC
 	UFUNCTION(NetMulticast, Reliable)
@@ -95,6 +98,12 @@ protected:
 
 	// 공격 애니메이션 재생 시간/길이(단위: 초)
 	float AttackTime = 1.4667f;
+
+	// 이전에 공격한 시간을 기록하기 위한 변수
+	float LastAttackStartTime = 0.0f;
+
+	// 클라이언트와 서버의 시간 간격을 기록하기 위한 변수
+	float AttackTimeDifference = 0.0f;
 
 // UI Section
 protected:
